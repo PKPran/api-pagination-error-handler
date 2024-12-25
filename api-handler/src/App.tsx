@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Skeleton } from "@/components/ui/skeleton"
-import { Alert, AlertDescription } from "@/components/ui/alert"
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -42,6 +40,10 @@ interface PageData {
   status: 'success' | 'error'
   attempts: number
 }
+
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+const MAX_RETRY_DELAY = 32000; // 32 seconds
+const MAX_RETRIES = 5;
 
 function App() {
   const [articles, setArticles] = useState<Article[]>([])
@@ -85,6 +87,19 @@ function App() {
     return `Success: ${data.data.length} articles [${data.data[0].title} ...]`
   }
 
+  const calculateBackoff = (retryCount: number): number => {
+    // Calculate exponential backoff
+    const backoff = Math.min(
+      INITIAL_RETRY_DELAY * Math.pow(2, retryCount),
+      MAX_RETRY_DELAY
+    );
+    
+    // Add random jitter (±10% of backoff)
+    const jitter = backoff * 0.1 * (Math.random() * 2 - 1);
+    
+    return backoff + jitter;
+  }
+
   const fetchArticles = async (pageNum: number, retryCount: number = 0): Promise<void> => {
     setLoading(true)
     setError(null)
@@ -93,6 +108,7 @@ function App() {
     setHighestPageAttempted(prev => Math.max(prev, pageNum))
     
     try {
+      const retryDelay = calculateBackoff(retryCount);
       addFetchStatus(pageNum, `Attempt ${retryCount + 1} - Fetching page ${pageNum}...`)
       
       const response = await fetch(
@@ -118,7 +134,7 @@ function App() {
         return newMap
       })
 
-      // Update attempted pages
+      // Update attempted pages with timing information
       setAttemptedPages(prev => [...prev, {
         pageNum,
         status: 'error' in data ? 'error' : 'success',
@@ -129,7 +145,6 @@ function App() {
         throw new Error(data.error)
       }
 
-      // On success, update articles state
       if ('data' in data) {
         setArticles(data.data)
         setHasNextPage(data.is_next)
@@ -138,10 +153,20 @@ function App() {
       }
 
     } catch (err) {
-      if (retryCount < 5) {
-        addFetchStatus(pageNum, `Failed - Retry ${retryCount + 1}/5 in 2s`)
+      const retryDelay = calculateBackoff(retryCount);
+      
+      if (retryCount < MAX_RETRIES) {
+        addFetchStatus(
+          pageNum, 
+          `Failed - Retry ${retryCount + 1}/${MAX_RETRIES} in ${(retryDelay/1000).toFixed(1)}s`
+        )
         addToRetryQueue(pageNum)
-        setTimeout(() => fetchArticles(pageNum, retryCount + 1), 2000)
+        
+        // Schedule retry with exponential backoff
+        setTimeout(
+          () => fetchArticles(pageNum, retryCount + 1), 
+          retryDelay
+        )
       } else {
         addFetchStatus(pageNum, 'Failed - Max retries reached')
         setError(err instanceof Error ? err.message : 'An unknown error occurred')
@@ -193,6 +218,22 @@ function App() {
     </div>
   )
 
+  const renderRetryInfo = () => {
+    const delays = Array.from({length: MAX_RETRIES}, (_, i) => {
+      const delay = calculateBackoff(i);
+      return `Attempt ${i + 1}: ${(delay/1000).toFixed(1)}s`;
+    });
+
+    return (
+      <div className="text-sm text-muted-foreground mt-4">
+        <p className="font-semibold mb-2">Retry Schedule:</p>
+        {delays.map((delay, index) => (
+          <p key={index} className="ml-2">{delay}</p>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Articles</h1>
@@ -207,6 +248,7 @@ function App() {
             <p>Retry Queue: {Array.from(retryQueue).join(', ') || 'Empty'}</p>
             {loading && <p className="text-blue-500">Loading page {page}...</p>}
             {renderAttemptStats()}
+            {renderRetryInfo()}
           </CardContent>
         </Card>
 
