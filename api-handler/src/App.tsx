@@ -127,24 +127,51 @@ function App() {
     return `Success: ${data.data.length} articles [${data.data[0].title} ...]`
   }
 
-  // Token bucket implementation
+  // Add useEffect to handle token refills
+  useEffect(() => {
+    const refillInterval = setInterval(() => {
+      const now = Date.now();
+      setRetryState(prev => {
+        const timePassed = (now - prev.lastRefill) / 1000; // Convert to seconds
+        const tokensToAdd = timePassed * TOKEN_BUCKET_RATE;
+        const newTokens = Math.min(
+          TOKEN_BUCKET_SIZE,
+          prev.tokens + tokensToAdd
+        );
+        
+        return {
+          ...prev,
+          tokens: newTokens,
+          lastRefill: now
+        };
+      });
+    }, 1000); // Update every second
+
+    return () => clearInterval(refillInterval);
+  }, []);
+
+  // Update getRetryToken to be more precise
   const getRetryToken = (): boolean => {
     const now = Date.now();
-    const timePassed = now - retryState.lastRefill;
-    const newTokens = Math.min(
-      TOKEN_BUCKET_SIZE,
-      retryState.tokens + (timePassed / 1000) * TOKEN_BUCKET_RATE
-    );
+    setRetryState(prev => {
+      const timePassed = (now - prev.lastRefill) / 1000;
+      const newTokens = Math.min(
+        TOKEN_BUCKET_SIZE,
+        prev.tokens + (timePassed * TOKEN_BUCKET_RATE)
+      );
 
-    if (newTokens >= 1) {
-      setRetryState(prev => ({
-        ...prev,
-        tokens: newTokens - 1,
-        lastRefill: now
-      }));
-      return true;
-    }
-    return false;
+      if (newTokens >= 1) {
+        return {
+          ...prev,
+          tokens: newTokens - 1,
+          lastRefill: now,
+          retryCount: prev.retryCount + 1
+        };
+      }
+      return prev;
+    });
+
+    return retryState.tokens >= 1;
   };
 
   // Enhanced backoff calculation with full jitter
@@ -181,8 +208,10 @@ function App() {
     setHighestPageAttempted(prev => Math.max(prev, pageNum))
     
     try {
-      if (retryCount > 0 && !getRetryToken()) {
-        throw new Error('Rate limited: Too many retry attempts')
+      if (retryCount > 0) {
+        if (!getRetryToken()) {
+          throw new Error('Rate limited: Too many retry attempts');
+        }
       }
 
       const retryDelay = calculateBackoff(retryCount)
@@ -365,22 +394,6 @@ function App() {
     </div>
   )
 
-  const renderRetryInfo = () => {
-    const delays = Array.from({length: MAX_RETRIES}, (_, i) => {
-      const delay = calculateBackoff(i);
-      return `Attempt ${i + 1}: ${(delay/1000).toFixed(1)}s`;
-    });
-
-    return (
-      <div className="text-sm text-muted-foreground mt-4">
-        <p className="font-semibold mb-2">Retry Schedule:</p>
-        {delays.map((delay, index) => (
-          <p key={index} className="ml-2">{delay}</p>
-        ))}
-      </div>
-    );
-  }
-
   const calculatePerformanceStats = (): PerformanceStats => {
     const stats: PerformanceStats = {
       totalRequests: attemptedPages.length,
@@ -524,65 +537,77 @@ function App() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {/* Backoff Strategy */}
-            <div>
-              <h3 className="text-sm font-medium mb-2">Backoff Strategy</h3>
-              <div className="space-y-2">
-                {retryAttempts.map((metric, index) => (
-                  <div key={index} className="relative">
-                    <div className="flex items-center gap-2">
-                      <div className="w-24">
-                        <span className="text-sm">Attempt {metric.attempt}</span>
-                      </div>
-                      <div className="flex-1 h-8 relative">
-                        <div 
-                          className="absolute h-2 bg-blue-500 rounded-full top-3"
-                          style={{ 
-                            width: `${(metric.delay / MAX_RETRY_DELAY) * 100}%`,
-                            opacity: 0.7
-                          }}
-                        />
-                        <span className="absolute right-0 text-xs text-gray-500">
-                          {(metric.delay / 1000).toFixed(1)}s delay
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Token Bucket Status */}
             <div>
               <h3 className="text-sm font-medium mb-2">Rate Limiting</h3>
               <div className="bg-gray-100 rounded-lg p-4">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-sm">Available Tokens</span>
-                  <span className="font-medium">{retryState.tokens.toFixed(1)}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{retryState.tokens.toFixed(1)}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({TOKEN_BUCKET_RATE}/sec refill rate)
+                    </span>
+                  </div>
                 </div>
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div 
-                    className="bg-green-500 rounded-full h-2"
+                    className="bg-green-500 rounded-full h-2 transition-all duration-300"
                     style={{ width: `${(retryState.tokens / TOKEN_BUCKET_SIZE) * 100}%` }}
                   />
+                </div>
+                <div className="mt-2 text-xs text-muted-foreground">
+                  Retries attempted: {retryState.retryCount}
                 </div>
               </div>
             </div>
 
-            {/* Key Metrics */}
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            {/* Backoff Strategy */}
+            <div>
+              <h3 className="text-sm font-medium mb-2">Recent Retry Attempts</h3>
+              <div className="space-y-2">
+                {retryAttempts.length > 0 ? (
+                  retryAttempts.map((metric, index) => (
+                    <div key={index} className="relative">
+                      <div className="flex items-center gap-2">
+                        <div className="w-24">
+                          <span className="text-sm">Attempt {metric.attempt}</span>
+                        </div>
+                        <div className="flex-1 h-8 relative">
+                          <div 
+                            className="absolute h-2 bg-blue-500 rounded-full top-3"
+                            style={{ 
+                              width: `${(metric.delay / MAX_RETRY_DELAY) * 100}%`,
+                              opacity: 0.7
+                            }}
+                          />
+                          <span className="absolute right-0 text-xs text-gray-500">
+                            {(metric.delay / 1000).toFixed(1)}s delay
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-muted-foreground text-center py-2">
+                    No retries for current page
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Summary Stats */}
+            <div className="grid grid-cols-2 gap-4">
               <div className="bg-blue-50 p-3 rounded-lg">
-                <div className="text-sm text-blue-800">Average Backoff</div>
+                <div className="text-sm text-blue-800">Token Usage</div>
                 <div className="text-xl font-semibold text-blue-900">
-                  {(retryMetrics.reduce((sum, m) => sum + m.delay, 0) / 
-                    (retryMetrics.length || 1) / 1000).toFixed(1)}s
+                  {TOKEN_BUCKET_SIZE - retryState.tokens}/{TOKEN_BUCKET_SIZE}
                 </div>
               </div>
               <div className="bg-purple-50 p-3 rounded-lg">
-                <div className="text-sm text-purple-800">Success Rate</div>
+                <div className="text-sm text-purple-800">Current Rate</div>
                 <div className="text-xl font-semibold text-purple-900">
-                  {((attemptedPages.filter(p => p.status === 'success').length / 
-                    (attemptedPages.length || 1)) * 100).toFixed(1)}%
+                  {TOKEN_BUCKET_RATE}/sec
                 </div>
               </div>
             </div>
@@ -594,7 +619,7 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-8">
+      <div className="container max-w-full mx-auto px-4 py-8">
         <div className="flex justify-between items-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900">API Request Monitor</h1>
           <div className="flex items-center gap-4">
