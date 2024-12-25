@@ -514,6 +514,84 @@ function App() {
     );
   };
 
+  const renderBackoffVisualization = () => {
+    const retryAttempts = retryMetrics.filter(m => m.pageNum === page);
+    
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Request Optimization</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {/* Backoff Strategy */}
+            <div>
+              <h3 className="text-sm font-medium mb-2">Backoff Strategy</h3>
+              <div className="space-y-2">
+                {retryAttempts.map((metric, index) => (
+                  <div key={index} className="relative">
+                    <div className="flex items-center gap-2">
+                      <div className="w-24">
+                        <span className="text-sm">Attempt {metric.attempt}</span>
+                      </div>
+                      <div className="flex-1 h-8 relative">
+                        <div 
+                          className="absolute h-2 bg-blue-500 rounded-full top-3"
+                          style={{ 
+                            width: `${(metric.delay / MAX_RETRY_DELAY) * 100}%`,
+                            opacity: 0.7
+                          }}
+                        />
+                        <span className="absolute right-0 text-xs text-gray-500">
+                          {(metric.delay / 1000).toFixed(1)}s delay
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Token Bucket Status */}
+            <div>
+              <h3 className="text-sm font-medium mb-2">Rate Limiting</h3>
+              <div className="bg-gray-100 rounded-lg p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm">Available Tokens</span>
+                  <span className="font-medium">{retryState.tokens.toFixed(1)}</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-green-500 rounded-full h-2"
+                    style={{ width: `${(retryState.tokens / TOKEN_BUCKET_SIZE) * 100}%` }}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Key Metrics */}
+            <div className="grid grid-cols-2 gap-4 mt-4">
+              <div className="bg-blue-50 p-3 rounded-lg">
+                <div className="text-sm text-blue-800">Average Backoff</div>
+                <div className="text-xl font-semibold text-blue-900">
+                  {(retryMetrics.reduce((sum, m) => sum + m.delay, 0) / 
+                    (retryMetrics.length || 1) / 1000).toFixed(1)}s
+                </div>
+              </div>
+              <div className="bg-purple-50 p-3 rounded-lg">
+                <div className="text-sm text-purple-800">Success Rate</div>
+                <div className="text-xl font-semibold text-purple-900">
+                  {((attemptedPages.filter(p => p.status === 'success').length / 
+                    (attemptedPages.length || 1)) * 100).toFixed(1)}%
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="container mx-auto px-4 py-8">
@@ -532,7 +610,7 @@ function App() {
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-8 mb-8">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Current Status</CardTitle>
@@ -562,6 +640,7 @@ function App() {
           </Card>
           {renderPerformanceMetrics()}
           {renderRetryQueueCard()}
+          {renderBackoffVisualization()}
         </div>
 
         <div className="mb-8">
