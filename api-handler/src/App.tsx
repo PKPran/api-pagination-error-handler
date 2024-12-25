@@ -8,7 +8,9 @@ import {
   AlertCircle, 
   RefreshCcw, 
   CheckCircle2, 
-  XCircle 
+  XCircle, 
+  ChevronDown, 
+  ChevronUp 
 } from 'lucide-react'
 
 interface Article {
@@ -93,6 +95,7 @@ function App() {
     retryCount: 0,
     lastBackoffDelay: 0
   });
+  const [isPageDataExpanded, setIsPageDataExpanded] = useState(true);
 
   const addToRetryQueue = (pageNum: number): void => {
     setRetryQueue(prev => new Set(prev).add(pageNum))
@@ -415,7 +418,7 @@ function App() {
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <p className="text-sm font-medium">Load Reduction</p>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col">
                   <span className="text-2xl font-bold text-green-600">
                     {preventedLoadPercentage.toFixed(1)}%
                   </span>
@@ -427,7 +430,7 @@ function App() {
               
               <div className="space-y-2">
                 <p className="text-sm font-medium">Backoff Impact</p>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col">
                   <span className="text-2xl font-bold text-blue-600">
                     {totalBackoffSeconds.toFixed(1)}s
                   </span>
@@ -471,12 +474,65 @@ function App() {
     )
   }
 
+  const renderRetryQueueCard = () => {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Retry Queue</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            {retryQueue.size > 0 ? (
+              Array.from(retryQueue).map(pageNum => {
+                const pageInfo = pageData.get(pageNum);
+                return (
+                  <div key={pageNum} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                    <div className="space-y-1">
+                      <div className="font-medium">Page {pageNum}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Attempts: {pageInfo?.attempts || 0}
+                      </div>
+                    </div>
+                    <Badge 
+                      variant="secondary"
+                      className="bg-yellow-100 text-yellow-800"
+                    >
+                      Pending Retry
+                    </Badge>
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-center py-4 text-muted-foreground">
+                <RefreshCcw className="h-5 w-5 mx-auto mb-2 opacity-50" />
+                <p>No pages in retry queue</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-8">API Request Monitor</h1>
+      <div className="container mx-auto px-4 py-8">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-900">API Request Monitor</h1>
+          <div className="flex items-center gap-4">
+            <span className="text-muted-foreground">Page {page}</span>
+            <Button
+              variant="outline"
+              onClick={() => setPage(p => p + 1)}
+              disabled={loading || !hasNextPage}
+            >
+              Next
+              <ChevronRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+        </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Current Status</CardTitle>
@@ -505,28 +561,23 @@ function App() {
             </CardContent>
           </Card>
           {renderPerformanceMetrics()}
+          {renderRetryQueueCard()}
         </div>
 
         <div className="mb-8">
-         
-        </div>
-
-        {renderPageData()}
-
-        <div className="flex items-center justify-center space-x-4">
-          
-          <span className="text-muted-foreground">
-            Page {page}
-          </span>
-          
           <Button
             variant="outline"
-            onClick={() => setPage(p => p + 1)}
-            disabled={loading || !hasNextPage}
+            onClick={() => setIsPageDataExpanded(!isPageDataExpanded)}
+            className="w-full flex items-center justify-between p-4"
           >
-            Next
-            <ChevronRight className="h-4 w-4 ml-2" />
+            <span>Page Data History</span>
+            {isPageDataExpanded ? (
+              <ChevronUp className="h-4 w-4" />
+            ) : (
+              <ChevronDown className="h-4 w-4" />
+            )}
           </Button>
+          {isPageDataExpanded && renderPageData()}
         </div>
       </div>
     </div>
