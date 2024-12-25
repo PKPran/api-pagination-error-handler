@@ -77,12 +77,19 @@ interface RetryState {
   lastBackoffDelay: number
 }
 
+// Add new state for queued retries
+interface QueuedRetry {
+  pageNum: number;
+  retryCount: number;
+  queuedAt: number;
+}
+
 function App() {
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
   const [page, setPage] = useState<number>(1)
-  const [retryQueue, setRetryQueue] = useState<Set<number>>(new Set())
+  const [retryQueue, setRetryQueue] = useState<QueuedRetry[]>([])
   const [hasNextPage, setHasNextPage] = useState<boolean>(true)
   const [fetchStatus, setFetchStatus] = useState<string[]>([])
   const [attemptedPages, setAttemptedPages] = useState<PageAttempt[]>([])
@@ -95,18 +102,14 @@ function App() {
     retryCount: 0,
     lastBackoffDelay: 0
   });
-  const [isPageDataExpanded, setIsPageDataExpanded] = useState(true);
+  const [isPageDataExpanded, setIsPageDataExpanded] = useState(false);
 
-  const addToRetryQueue = (pageNum: number): void => {
-    setRetryQueue(prev => new Set(prev).add(pageNum))
+  const addToRetryQueue = (retry: QueuedRetry): void => {
+    setRetryQueue(prev => [...prev, retry]);
   }
 
   const removeFromRetryQueue = (pageNum: number): void => {
-    setRetryQueue(prev => {
-      const newQueue = new Set(prev)
-      newQueue.delete(pageNum)
-      return newQueue
-    })
+    setRetryQueue(prev => prev.filter(retry => retry.pageNum !== pageNum));
   }
 
   const addFetchStatus = (pageNum: number, status: string): void => {
@@ -200,20 +203,61 @@ function App() {
     }
   };
 
+  // Add useEffect to process the retry queue
+  useEffect(() => {
+    const processQueue = async () => {
+      if (retryQueue.length > 0 && retryState.tokens >= 1) {
+        const nextRetry = retryQueue[0];
+        removeFromRetryQueue(nextRetry.pageNum);
+        
+        // Calculate queue time
+        const queueTime = Date.now() - nextRetry.queuedAt;
+        
+        // Add to metrics
+        setRetryMetrics(prev => [...prev, {
+          timestamp: Date.now(),
+          delay: queueTime,
+          pageNum: nextRetry.pageNum,
+          attempt: nextRetry.retryCount + 1,
+          statusCode: 429
+        }]);
+
+        // Attempt the retry
+        await fetchArticles(nextRetry.pageNum, nextRetry.retryCount);
+      }
+    };
+
+    const interval = setInterval(processQueue, 1000);
+    return () => clearInterval(interval);
+  }, [retryQueue, retryState.tokens]);
+
+  // Update fetchArticles to use queue
   const fetchArticles = async (pageNum: number, retryCount: number = 0): Promise<void> => {
-    setLoading(true)
-    setError(null)
-    
-    // Update highest page attempted
-    setHighestPageAttempted(prev => Math.max(prev, pageNum))
+    setLoading(true);
+    setError(null);
     
     try {
       if (retryCount > 0) {
         if (!getRetryToken()) {
-          throw new Error('Rate limited: Too many retry attempts');
+          // Add to queue
+          addToRetryQueue({
+            pageNum,
+            retryCount,
+            queuedAt: Date.now()
+          });
+          
+          addFetchStatus(
+            pageNum,
+            `Rate limited - Added to queue (Position: ${retryQueue.length + 1})`
+          );
+          
+          return;
         }
       }
 
+      // Update highest page attempted
+      setHighestPageAttempted(prev => Math.max(prev, pageNum))
+      
       const retryDelay = calculateBackoff(retryCount)
       addFetchStatus(pageNum, `Attempt ${retryCount + 1} - Fetching page ${pageNum}...`)
       
@@ -280,21 +324,25 @@ function App() {
         statusCode: isTimeout ? 408 : isRateLimited ? 429 : 500
       }])
 
-      if (retryCount < MAX_RETRIES && !isRateLimited) {
+      if (retryCount < MAX_RETRIES) {
         const retryDelay = calculateBackoff(retryCount)
-        const delayInSeconds = (retryDelay / 1000).toFixed(1)
         
-        addFetchStatus(
-          pageNum,
-          `Failed (${isTimeout ? 'Timeout' : 'Error'}) - Retry ${retryCount + 1}/${MAX_RETRIES} in ${delayInSeconds}s`
-        )
-        
-        addToRetryQueue(pageNum)
-        setTimeout(() => fetchArticles(pageNum, retryCount + 1), retryDelay)
-      } else {
-        const reason = isRateLimited ? 'Rate limit exceeded' : 'Max retries reached'
-        addFetchStatus(pageNum, `Failed - ${reason}`)
-        setError(error.message)
+        if (isRateLimited || !getRetryToken()) {
+          // Add to queue
+          addToRetryQueue({
+            pageNum,
+            retryCount,
+            queuedAt: Date.now()
+          });
+          
+          addFetchStatus(
+            pageNum,
+            `Rate limited - Added to queue (Position: ${retryQueue.length + 1})`
+          );
+        } else {
+          // Normal retry with backoff
+          setTimeout(() => fetchArticles(pageNum, retryCount + 1), retryDelay);
+        }
       }
     } finally {
       setLoading(false)
@@ -495,13 +543,13 @@ function App() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {retryQueue.size > 0 ? (
-              Array.from(retryQueue).map(pageNum => {
-                const pageInfo = pageData.get(pageNum);
+            {retryQueue.length > 0 ? (
+              retryQueue.map(retry => {
+                const pageInfo = pageData.get(retry.pageNum);
                 return (
-                  <div key={pageNum} className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                  <div key={retry.pageNum} className="flex items-center justify-between p-3 bg-muted rounded-lg">
                     <div className="space-y-1">
-                      <div className="font-medium">Page {pageNum}</div>
+                      <div className="font-medium">Page {retry.pageNum}</div>
                       <div className="text-sm text-muted-foreground">
                         Attempts: {pageInfo?.attempts || 0}
                       </div>
@@ -610,6 +658,29 @@ function App() {
                   {TOKEN_BUCKET_RATE}/sec
                 </div>
               </div>
+            </div>
+
+            {/* Queue Status */}
+            <div>
+              <h3 className="text-sm font-medium mb-2">Queue Status</h3>
+              {retryQueue.length > 0 ? (
+                <div className="space-y-2">
+                  {retryQueue.map((queued, index) => (
+                    <div key={index} className="flex items-center justify-between bg-yellow-50 p-2 rounded">
+                      <span className="text-sm">
+                        Page {queued.pageNum} (Attempt {queued.retryCount + 1})
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        Queued: {((Date.now() - queued.queuedAt) / 1000).toFixed(1)}s ago
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-500 text-center py-2">
+                  No requests in queue
+                </div>
+              )}
             </div>
           </div>
         </CardContent>
