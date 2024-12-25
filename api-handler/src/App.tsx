@@ -292,7 +292,7 @@ function App() {
         
         <div className="flex justify-between items-center">
           <span className="text-sm font-medium">Success Rate:</span>
-          <Badge variant={successRate === '100.0' ? 'success' : 'secondary'} className={successRate === '100.0' ? 'text-green-600' : 'text-yellow-600'}>
+          <Badge variant={successRate === '100.0' ? 'default' : 'secondary'} className={successRate === '100.0' ? 'text-green-600' : 'text-yellow-600'}>
             {successRate}%
           </Badge>
         </div>
@@ -453,7 +453,7 @@ function App() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Articles</h1>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">Current Status</CardTitle>
@@ -481,10 +481,11 @@ function App() {
             ))}
           </CardContent>
         </Card>
+        {renderPerformanceMetrics()}
       </div>
 
       <div className="mb-8">
-        {renderPerformanceMetrics()}
+       
       </div>
 
       {renderPageData()}
