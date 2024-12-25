@@ -279,32 +279,46 @@ function App() {
     const successRate = (successfulAttempts / (attemptedPages.length || 1) * 100).toFixed(1)
 
     return (
-      <div className="space-y-2">
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-medium">Highest Page:</span>
-          <Badge variant="outline">{highestPageAttempted}</Badge>
-        </div>
-        
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-medium">Total Attempts:</span>
-          <Badge variant="outline">{attemptedPages.length}</Badge>
-        </div>
-        
-        <div className="flex justify-between items-center">
-          <span className="text-sm font-medium">Success Rate:</span>
-          <Badge variant={successRate === '100.0' ? 'default' : 'secondary'} className={successRate === '100.0' ? 'text-green-600' : 'text-yellow-600'}>
-            {successRate}%
-          </Badge>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-2">
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-green-600">Successful:</span>
-            <span className="font-medium">{successfulAttempts}</span>
+      <div className="space-y-4">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-green-50 p-4 rounded-lg border border-green-200">
+            <div className="text-green-800 text-sm font-medium">Successful</div>
+            <div className="mt-2 flex justify-between items-baseline">
+              <div className="text-2xl font-bold text-green-600">{successfulAttempts}</div>
+              <div className="text-sm text-green-600">attempts</div>
+            </div>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-red-600">Failed:</span>
-            <span className="font-medium">{failedAttempts}</span>
+          
+          <div className="bg-red-50 p-4 rounded-lg border border-red-200">
+            <div className="text-red-800 text-sm font-medium">Failed</div>
+            <div className="mt-2 flex justify-between items-baseline">
+              <div className="text-2xl font-bold text-red-600">{failedAttempts}</div>
+              <div className="text-sm text-red-600">attempts</div>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white p-4 rounded-lg border">
+          <div className="flex justify-between items-center mb-2">
+            <span className="text-sm font-medium text-gray-600">Success Rate</span>
+            <Badge variant={successRate === '100.0' ? 'default' : 'secondary'} 
+                  className={`px-3 py-1 ${successRate === '100.0' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+              {successRate}%
+            </Badge>
+          </div>
+          <div className="w-full bg-gray-200 rounded-full h-2.5">
+            <div className="bg-green-600 h-2.5 rounded-full" style={{ width: `${successRate}%` }}></div>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="text-sm font-medium text-gray-600">Highest Page</div>
+            <div className="mt-2 text-2xl font-bold">{highestPageAttempted}</div>
+          </div>
+          <div className="bg-white p-4 rounded-lg border">
+            <div className="text-sm font-medium text-gray-600">Total Attempts</div>
+            <div className="mt-2 text-2xl font-bold">{attemptedPages.length}</div>
           </div>
         </div>
       </div>
@@ -314,25 +328,33 @@ function App() {
   const renderPageData = () => (
     <div className="grid gap-6 mb-8">
       {Array.from(pageData.entries()).map(([pageNum, data]) => (
-        <Card key={pageNum}>
-          <CardHeader>
+        <Card key={pageNum} className="hover:shadow-lg transition-shadow duration-200">
+          <CardHeader className="bg-gray-50 border-b">
             <CardTitle className="flex items-center justify-between">
-              <span>Page {pageNum}</span>
+              <span className="text-lg font-semibold">Page {pageNum}</span>
               <Badge 
                 variant={data.status === 'success' ? 'default' : 'destructive'}
+                className={`px-3 py-1 ${
+                  data.status === 'success' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-red-100 text-red-800'
+                }`}
               >
                 {data.status.toUpperCase()}
               </Badge>
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <p className="text-sm font-mono bg-muted p-2 rounded">
+          <CardContent className="pt-4">
+            <div className="space-y-3">
+              <p className="text-sm font-mono bg-gray-50 p-3 rounded-md border">
                 {formatResponse(data.content)}
               </p>
-              <p className="text-sm text-muted-foreground">
-                Attempts: {data.attempts}
-              </p>
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <span>Attempts: {data.attempts}</span>
+                {data.lastAttemptTime && (
+                  <span>Last attempt: {new Date(data.lastAttemptTime).toLocaleTimeString()}</span>
+                )}
+              </div>
             </div>
           </CardContent>
         </Card>
@@ -450,68 +472,62 @@ function App() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Articles</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Current Status</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <p>Current Page: {page}</p>
-              <p>Retry Queue: {Array.from(retryQueue).join(', ') || 'Empty'}</p>
-              {loading && <p className="text-blue-500">Loading page {page}...</p>}
-            </div>
-            {renderAttemptStats()}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-lg">Fetch History</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {fetchStatus.map((status, index) => (
-              <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                {getStatusIcon(status)}
-                <span className="text-sm">{status}</span>
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">API Request Monitor</h1>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Current Status</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <p>Current Page: {page}</p>
+                <p>Retry Queue: {Array.from(retryQueue).join(', ') || 'Empty'}</p>
+                {loading && <p className="text-blue-500">Loading page {page}...</p>}
               </div>
-            ))}
-          </CardContent>
-        </Card>
-        {renderPerformanceMetrics()}
-      </div>
+              {renderAttemptStats()}
+            </CardContent>
+          </Card>
 
-      <div className="mb-8">
-       
-      </div>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Fetch History</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {fetchStatus.map((status, index) => (
+                <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                  {getStatusIcon(status)}
+                  <span className="text-sm">{status}</span>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+          {renderPerformanceMetrics()}
+        </div>
 
-      {renderPageData()}
+        <div className="mb-8">
+         
+        </div>
 
-      <div className="flex items-center justify-center space-x-4">
-        <Button
-          variant="outline"
-          onClick={() => setPage(p => Math.max(1, p - 1))}
-          disabled={page === 1 || loading}
-        >
-          <ChevronLeft className="h-4 w-4 mr-2" />
-          Previous
-        </Button>
-        
-        <span className="text-muted-foreground">
-          Page {page}
-        </span>
-        
-        <Button
-          variant="outline"
-          onClick={() => setPage(p => p + 1)}
-          disabled={loading || !hasNextPage}
-        >
-          Next
-          <ChevronRight className="h-4 w-4 ml-2" />
-        </Button>
+        {renderPageData()}
+
+        <div className="flex items-center justify-center space-x-4">
+          
+          <span className="text-muted-foreground">
+            Page {page}
+          </span>
+          
+          <Button
+            variant="outline"
+            onClick={() => setPage(p => p + 1)}
+            disabled={loading || !hasNextPage}
+          >
+            Next
+            <ChevronRight className="h-4 w-4 ml-2" />
+          </Button>
+        </div>
       </div>
     </div>
   )
