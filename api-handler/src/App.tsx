@@ -89,6 +89,9 @@ function App() {
     setLoading(true)
     setError(null)
     
+    // Update highest page attempted
+    setHighestPageAttempted(prev => Math.max(prev, pageNum))
+    
     try {
       addFetchStatus(pageNum, `Attempt ${retryCount + 1} - Fetching page ${pageNum}...`)
       
@@ -114,6 +117,13 @@ function App() {
         })
         return newMap
       })
+
+      // Update attempted pages
+      setAttemptedPages(prev => [...prev, {
+        pageNum,
+        status: 'error' in data ? 'error' : 'success',
+        timestamp: Date.now()
+      }])
 
       if ('error' in data) {
         throw new Error(data.error)
@@ -196,6 +206,7 @@ function App() {
             <p>Current Page: {page}</p>
             <p>Retry Queue: {Array.from(retryQueue).join(', ') || 'Empty'}</p>
             {loading && <p className="text-blue-500">Loading page {page}...</p>}
+            {renderAttemptStats()}
           </CardContent>
         </Card>
 
