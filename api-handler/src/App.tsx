@@ -36,6 +36,13 @@ interface PageAttempt {
   timestamp: number
 }
 
+interface PageData {
+  pageNum: number
+  content: ApiResponse | ErrorResponse
+  status: 'success' | 'error'
+  attempts: number
+}
+
 function App() {
   const [articles, setArticles] = useState<Article[]>([])
   const [loading, setLoading] = useState<boolean>(false)
@@ -46,6 +53,7 @@ function App() {
   const [fetchStatus, setFetchStatus] = useState<string[]>([])
   const [attemptedPages, setAttemptedPages] = useState<PageAttempt[]>([])
   const [highestPageAttempted, setHighestPageAttempted] = useState<number>(0)
+  const [pageData, setPageData] = useState<Map<number, PageData>>(new Map())
 
   const addToRetryQueue = (pageNum: number): void => {
     setRetryQueue(prev => new Set(prev).add(pageNum))
@@ -70,14 +78,19 @@ function App() {
     return <AlertCircle className="h-4 w-4 text-yellow-500" />
   }
 
+  const formatResponse = (data: ApiResponse | ErrorResponse): string => {
+    if ('error' in data) {
+      return `Error: ${data.error}`
+    }
+    return `Success: ${data.data.length} articles [${data.data[0].title} ...]`
+  }
+
   const fetchArticles = async (pageNum: number, retryCount: number = 0): Promise<void> => {
     setLoading(true)
     setError(null)
     
-    setHighestPageAttempted(prev => Math.max(prev, pageNum))
-    
     try {
-      addFetchStatus(pageNum, `Attempt ${retryCount + 1} - Fetching...`)
+      addFetchStatus(pageNum, `Attempt ${retryCount + 1} - Fetching page ${pageNum}...`)
       
       const response = await fetch(
         `/articles?page=${pageNum}&per_page=12`,
@@ -90,32 +103,29 @@ function App() {
 
       const data: ApiResponse | ErrorResponse = await response.json()
 
-      if ('error' in data) {
-        setAttemptedPages(prev => [...prev, {
+      // Update page data regardless of success/error
+      setPageData(prev => {
+        const newMap = new Map(prev)
+        newMap.set(pageNum, {
           pageNum,
-          status: 'error',
-          timestamp: Date.now()
-        }])
+          content: data,
+          status: 'error' in data ? 'error' : 'success',
+          attempts: (prev.get(pageNum)?.attempts || 0) + 1
+        })
+        return newMap
+      })
+
+      if ('error' in data) {
         throw new Error(data.error)
       }
 
-      setAttemptedPages(prev => [...prev, {
-        pageNum,
-        status: 'success',
-        timestamp: Date.now()
-      }])
-
-      setArticles(prev => {
-        const articleMap = new Map(prev.map(article => [article.id, article]))
-        data.data.forEach(article => {
-          articleMap.set(article.id, article)
-        })
-        return Array.from(articleMap.values()).sort((a, b) => a.id - b.id)
-      })
-
-      setHasNextPage(data.is_next)
-      removeFromRetryQueue(pageNum)
-      addFetchStatus(pageNum, 'Success')
+      // On success, update articles state
+      if ('data' in data) {
+        setArticles(data.data)
+        setHasNextPage(data.is_next)
+        removeFromRetryQueue(pageNum)
+        addFetchStatus(pageNum, 'Success')
+      }
 
     } catch (err) {
       if (retryCount < 5) {
@@ -144,6 +154,35 @@ function App() {
     </div>
   )
 
+  const renderPageData = () => (
+    <div className="grid gap-6 mb-8">
+      {Array.from(pageData.entries()).map(([pageNum, data]) => (
+        <Card key={pageNum}>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <span>Page {pageNum}</span>
+              <Badge 
+                variant={data.status === 'success' ? 'default' : 'destructive'}
+              >
+                {data.status.toUpperCase()}
+              </Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <p className="text-sm font-mono bg-muted p-2 rounded">
+                {formatResponse(data.content)}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Attempts: {data.attempts}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  )
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Articles</h1>
@@ -151,74 +190,31 @@ function App() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Fetch Status</CardTitle>
+            <CardTitle className="text-lg">Current Status</CardTitle>
           </CardHeader>
-          <CardContent>
-            {renderAttemptStats()}
-            <div className="space-y-2 mt-4">
-              {fetchStatus.map((status, index) => (
-                <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded-md">
-                  {getStatusIcon(status)}
-                  <span className="text-sm">{status}</span>
-                </div>
-              ))}
-            </div>
+          <CardContent className="space-y-2">
+            <p>Current Page: {page}</p>
+            <p>Retry Queue: {Array.from(retryQueue).join(', ') || 'Empty'}</p>
+            {loading && <p className="text-blue-500">Loading page {page}...</p>}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Retry Queue</CardTitle>
+            <CardTitle className="text-lg">Fetch History</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {Array.from(retryQueue).map(pageNum => (
-              <div key={pageNum} className="flex items-center gap-2 p-2 bg-yellow-50 rounded-md">
-                <RefreshCcw className="h-4 w-4 animate-spin text-yellow-600" />
-                <span className="text-sm text-yellow-700">Page {pageNum} pending...</span>
+            {fetchStatus.map((status, index) => (
+              <div key={index} className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                {getStatusIcon(status)}
+                <span className="text-sm">{status}</span>
               </div>
             ))}
-            {retryQueue.size === 0 && (
-              <p className="text-sm text-muted-foreground">No pending retries</p>
-            )}
           </CardContent>
         </Card>
       </div>
 
-      {loading && (
-        <div className="grid gap-4 mb-6">
-          {[1, 2, 3].map((n) => (
-            <Card key={n}>
-              <CardContent className="p-4">
-                <Skeleton className="h-4 w-[250px] mb-2" />
-                <Skeleton className="h-4 w-[400px]" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-      
-      {error && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      
-      <div className="grid gap-6 mb-8">
-        {articles.map(article => (
-          <Card key={article.id}>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <span>{article.title}</span>
-                <Badge variant="outline">#{article.id}</Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">{article.content}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {renderPageData()}
 
       <div className="flex items-center justify-center space-x-4">
         <Button
