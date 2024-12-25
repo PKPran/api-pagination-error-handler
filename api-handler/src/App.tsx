@@ -103,6 +103,7 @@ function App() {
     lastBackoffDelay: 0
   });
   const [isPageDataExpanded, setIsPageDataExpanded] = useState(false);
+  const [actualRetryRate, setActualRetryRate] = useState<number>(0);
 
   const addToRetryQueue = (retry: QueuedRetry): void => {
     setRetryQueue(prev => [...prev, retry]);
@@ -655,7 +656,10 @@ function App() {
               <div className="bg-purple-50 p-3 rounded-lg">
                 <div className="text-sm text-purple-800">Current Rate</div>
                 <div className="text-xl font-semibold text-purple-900">
-                  {TOKEN_BUCKET_RATE}/sec
+                  {actualRetryRate}/sec
+                </div>
+                <div className="text-xs text-purple-600">
+                  Max: {TOKEN_BUCKET_RATE}/sec
                 </div>
               </div>
             </div>
@@ -687,6 +691,29 @@ function App() {
       </Card>
     );
   };
+
+  // Add this useEffect to calculate actual rate
+  useEffect(() => {
+    const now = Date.now();
+    const oneSecondAgo = now - 1000;
+    
+    // Count retries in the last second
+    const recentRetries = retryMetrics
+      .filter(metric => metric.timestamp > oneSecondAgo)
+      .length;
+
+    setActualRetryRate(recentRetries);
+
+    const interval = setInterval(() => {
+      const currentTime = Date.now();
+      const recentRetries = retryMetrics
+        .filter(metric => metric.timestamp > (currentTime - 1000))
+        .length;
+      setActualRetryRate(recentRetries);
+    }, 200); // Update 5 times per second
+
+    return () => clearInterval(interval);
+  }, [retryMetrics]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -721,6 +748,10 @@ function App() {
             </CardContent>
           </Card>
 
+          {renderBackoffVisualization()}
+          {renderRetryQueueCard()}
+          {renderPerformanceMetrics()}
+
           <Card>
             <CardHeader>
               <CardTitle className="text-lg">Fetch History</CardTitle>
@@ -734,9 +765,6 @@ function App() {
               ))}
             </CardContent>
           </Card>
-          {renderPerformanceMetrics()}
-          {renderRetryQueueCard()}
-          {renderBackoffVisualization()}
         </div>
 
         <div className="mb-8">
