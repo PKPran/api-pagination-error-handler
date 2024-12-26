@@ -52,15 +52,23 @@ function App() {
   const [page, setPage] = useState<number>(1)
   const [hasNextPage, setHasNextPage] = useState<boolean>(true)
   const [pageData, setPageData] = useState<Map<number, PageData>>(new Map())
+  const [visitedPages, setVisitedPages] = useState<Set<number>>(new Set())
 
   // Simplified fetch function without retry logic
   const fetchArticles = async (pageNum: number, retryCount = 0): Promise<void> => {
-    setLoading(true)
-    setError(null)
+    // Don't start if we've already hit max retries
+    if (retryCount >= MAX_RETRIES) {
+      return;
+    }
+
+    if (retryCount === 0) {
+      setLoading(true)
+      setError(null)
+    }
 
     try {
       const response = await fetch(
-        `/articles?page=${pageNum}&per_page=12`,
+        `/articles?page=${pageNum}&per_page=10`,
         {
           headers: { 'Authorization': 'praneeth' }
         }
@@ -68,7 +76,7 @@ function App() {
 
       const data: ApiResponse | ErrorResponse = await response.json()
 
-      // Update page data with retry count
+      // Update page data with correct attempt count
       setPageData(prev => {
         const newMap = new Map(prev)
         newMap.set(pageNum, {
@@ -87,22 +95,25 @@ function App() {
 
       setArticles(data.data)
       setHasNextPage(data.is_next)
+      setVisitedPages(prev => new Set(prev).add(pageNum))
+      setError(null)
 
     } catch (err) {
       const error = err as Error
-
-      // Implement retry logic
-      if (retryCount < MAX_RETRIES) {
-        setError(`Attempt ${retryCount + 1}/${MAX_RETRIES}: ${error.message}. Retrying...`)
+      
+      // Only retry if we haven't hit MAX_RETRIES yet
+      if (retryCount < MAX_RETRIES - 1) {
+        setError(`Retrying page ${pageNum}... (Attempt ${retryCount + 1}/${MAX_RETRIES})`)
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY))
         return fetchArticles(pageNum, retryCount + 1)
       }
 
-      setError(`Failed after ${MAX_RETRIES} attempts: ${error.message}`)
-      // Don't disable next page navigation after max retries
-      // This allows users to skip problematic pages
+      setError(`Failed to load page ${pageNum} after ${MAX_RETRIES} attempts. Try another page or come back later.`)
     } finally {
-      setLoading(false)
+      // Only set loading to false on first attempt or last retry
+      if (retryCount === 0 || retryCount === MAX_RETRIES - 1) {
+        setLoading(false)
+      }
     }
   }
 
