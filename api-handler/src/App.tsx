@@ -148,11 +148,10 @@ const ArticleSkeleton = () => {
   )
 }
 
-const PageIndicator = ({ pageNum, currentPage, status, attempts }: { 
+const PageIndicator = ({ pageNum, currentPage, status }: { 
   pageNum: number
   currentPage: number
   status: 'success' | 'error' | 'loading' | 'default'
-  attempts?: number
 }) => (
   <div className={`
     relative rounded-lg px-4 py-2 text-sm font-medium transition-all duration-200
@@ -638,8 +637,7 @@ function App() {
                       pageData.get(pageNum)?.status === 'error' ? 'error' :
                       loading && pageNum === page ? 'loading' : 'default'
                     }
-                    attempts={pageData.get(pageNum)?.attempts}
-                  />
+                    />
                 )
               ))}
             </div>
