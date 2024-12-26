@@ -10,7 +10,12 @@ import {
   Loader2,
   Database,
   CloudOff,
-  CheckCircle
+  CheckCircle,
+  NewspaperIcon,
+  Coffee,
+  Newspaper,
+  ScrollText,
+  Inbox
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Moon, Sun } from 'lucide-react'
@@ -224,18 +229,64 @@ const StateIllustration = ({
 // Add this component for end of content
 const EndOfContent = () => {
   const { theme } = useTheme()
+  const messages = [
+    {
+      text: "That's all the news for now! Time for a coffee break ☕",
+      icon: <Coffee className="w-12 h-12 animate-bounce" />
+    },
+    {
+      text: "You've reached the end! Our journalists are busy writing more stories...",
+      icon: <Newspaper className="w-12 h-12 animate-pulse" />
+    },
+    {
+      text: "No more articles to scroll through! Maybe touch some grass? 🌱",
+      icon: <ScrollText className="w-12 h-12 animate-in spin-in-180" />
+    },
+    {
+      text: "Inbox zero achieved! Well, news inbox anyway...",
+      icon: <Inbox className="w-12 h-12 animate-bounce" />
+    }
+  ]
+
+  // Randomly select a message
+  const message = messages[Math.floor(Math.random() * messages.length)]
+
   return (
-    <div className="mt-12 text-center space-y-4">
+    <div className={`
+      mt-12 p-8 rounded-xl text-center space-y-4 border
+      ${theme === 'dark' 
+        ? 'bg-gray-800/50 border-gray-700' 
+        : 'bg-gray-50 border-gray-200'}
+    `}>
+      <div className={`
+        inline-flex p-4 rounded-full
+        ${theme === 'dark' ? 'bg-gray-700' : 'bg-white'}
+      `}>
+        <div className={`
+          ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}
+        `}>
+          {message.icon}
+        </div>
+      </div>
+      
+      <h3 className={`
+        text-xl font-semibold
+        ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}
+      `}>
+        End of the Feed
+      </h3>
+      
+      <p className={`
+        text-sm
+        ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}
+      `}>
+        {message.text}
+      </p>
+
       <div className={`
         w-24 h-1 mx-auto rounded-full
         ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'}
       `} />
-      <p className={`
-        text-sm font-medium
-        ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}
-      `}>
-        You've reached the end
-      </p>
     </div>
   )
 }
