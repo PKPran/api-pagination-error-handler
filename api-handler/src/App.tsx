@@ -16,7 +16,8 @@ import {
   Newspaper,
   ScrollText,
   Inbox,
-  X
+  X,
+  XCircle
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Moon, Sun } from 'lucide-react'
@@ -40,7 +41,7 @@ interface ErrorResponse {
 interface PageData {
   pageNum: number
   content: ApiResponse | ErrorResponse
-  status: 'success' | 'error'
+  status: 'success' | 'error' | 'loading'
   attempts: number
   lastAttemptTime?: number
 }
@@ -409,6 +410,71 @@ const BottomStatusBar = ({
   )
 }
 
+const PageStatusCard = ({ pageData }: { 
+  pageData: Map<number, PageData> 
+}) => {
+  const { theme } = useTheme()
+  
+  const sortedPages = Array.from(pageData.entries())
+    .sort(([a], [b]) => a - b)
+
+  return (
+    <div className={`
+      fixed top-24 right-4 z-40 w-64 rounded-lg shadow-lg border mt-14
+      ${theme === 'dark' 
+        ? 'bg-gray-800/90 border-gray-700' 
+        : 'bg-white/90 border-gray-200'}
+      backdrop-blur-sm
+    `}>
+      <div className="p-4">
+        <h3 className={`
+          text-sm font-medium mb-3
+          ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}
+        `}>
+          Page Status History
+        </h3>
+        <div className="space-y-2 max-h-[300px] overflow-y-auto">
+          {sortedPages.map(([pageNum, data]) => (
+            <div 
+              key={pageNum}
+              className={`
+                flex items-center justify-between p-2 rounded-md text-sm
+                ${theme === 'dark' ? 'bg-gray-700/50' : 'bg-gray-50'}
+              `}
+            >
+              <span className={`
+                ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}
+              `}>
+                Page {pageNum}
+              </span>
+              <div className="flex items-center gap-2">
+                {data.status === 'success' && (
+                  <span className="text-green-500 flex items-center gap-1">
+                    <CheckCircle className="w-4 h-4" />
+                    Success
+                  </span>
+                )}
+                {data.status === 'error' && (
+                  <span className="text-red-500 flex items-center gap-1">
+                    <XCircle className="w-4 h-4" />
+                    Failed ({data.attempts})
+                  </span>
+                )}
+                {data.status === 'loading' && (
+                  <span className="text-blue-500 flex items-center gap-1">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Loading
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const { theme, setTheme } = useTheme()
   const [articles, setArticles] = useState<Article[]>([])
@@ -486,10 +552,14 @@ function App() {
     fetchArticles(page)
   }, [page])
 
-  // Show modal when reaching the end
+  // Show modal when reaching the end with delay
   useEffect(() => {
     if (!loading && !error && articles.length > 0 && !hasNextPage) {
-      setShowEndModal(true)
+      const timer = setTimeout(() => {
+        setShowEndModal(true)
+      }, 1000) // 1 second delay
+      
+      return () => clearTimeout(timer) // Cleanup
     }
   }, [loading, error, articles.length, hasNextPage])
 
@@ -677,6 +747,9 @@ function App() {
         show={showEndModal} 
         onClose={() => setShowEndModal(false)} 
       />
+
+      {/* Add PageStatusCard */}
+      <PageStatusCard pageData={pageData} />
     </div>
   )
 }
