@@ -24,7 +24,7 @@ A React-based dashboard that demonstrates advanced error handling and retry mech
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/yourusername/api-pagination-error-handler.git
+   https://github.com/PKPran/api-pagination-error-handler.git
    ```
 
 2. **Navigate to project directory:**
