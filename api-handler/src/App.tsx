@@ -697,19 +697,17 @@ function App() {
             message="No articles available for this page. Try navigating to a different page."
           />
         ) : (
-          <>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-              {articles.map((article, i) => (
-                <div
-                  key={article.id}
-                  className="animate-in fade-in slide-in-from-bottom-4 duration-300"
-                  style={{ animationDelay: `${i * 100}ms` }}
-                >
-                  <ArticleCard article={article} />
-                </div>
-              ))}
-            </div>
-          </>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+            {articles.map((article, i) => (
+              <div
+                key={article.id}
+                className="animate-in fade-in slide-in-from-bottom-4 duration-300"
+                style={{ animationDelay: `${i * 100}ms` }}
+              >
+                <ArticleCard article={article} />
+              </div>
+            ))}
+          </div>
         )}
 
         {/* Enhanced Status Indicator */}
