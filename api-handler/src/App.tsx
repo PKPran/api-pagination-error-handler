@@ -6,6 +6,10 @@ import {
   ChevronRight,
   AlertCircle,
   RefreshCcw,
+  FileX,
+  Loader2,
+  Database,
+  CloudOff
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Moon, Sun } from 'lucide-react'
@@ -171,6 +175,50 @@ const LoadingGrid = () => (
     ))}
   </div>
 )
+
+// Add this new component for empty/error states
+const StateIllustration = ({ 
+  type, 
+  message 
+}: { 
+  type: 'empty' | 'error' | 'loading'
+  message: string 
+}) => {
+  const { theme } = useTheme()
+  
+  return (
+    <div className="flex flex-col items-center justify-center min-h-[400px] animate-in fade-in slide-in-from-bottom-8 duration-700">
+      <div className={`
+        p-8 rounded-full mb-6
+        ${theme === 'dark' ? 'bg-gray-800' : 'bg-gray-100'}
+      `}>
+        {type === 'empty' && (
+          <Database className="w-12 h-12 text-gray-400 animate-in spin-in-180 duration-500" />
+        )}
+        {type === 'error' && (
+          <CloudOff className="w-12 h-12 text-orange-400 animate-bounce" />
+        )}
+        {type === 'loading' && (
+          <Loader2 className="w-12 h-12 text-blue-500 animate-spin" />
+        )}
+      </div>
+      <h3 className={`
+        text-xl font-semibold mb-2
+        ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}
+      `}>
+        {type === 'empty' && 'No Articles Found'}
+        {type === 'error' && 'Failed to Load'}
+        {type === 'loading' && 'Loading Articles'}
+      </h3>
+      <p className={`
+        text-center max-w-md
+        ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}
+      `}>
+        {message}
+      </p>
+    </div>
+  )
+}
 
 function App() {
   const { theme, setTheme } = useTheme()
@@ -368,9 +416,19 @@ function App() {
           </div>
         )}
 
-        {/* Articles Grid */}
+        {/* Articles Grid with State Illustrations */}
         {loading ? (
           <LoadingGrid />
+        ) : error ? (
+          <StateIllustration 
+            type="error"
+            message={error}
+          />
+        ) : articles.length === 0 ? (
+          <StateIllustration 
+            type="empty"
+            message="No articles available for this page. Try navigating to a different page."
+          />
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
             {articles.map((article, i) => (
