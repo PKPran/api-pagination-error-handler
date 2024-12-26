@@ -67,10 +67,10 @@ const ArticleCard = ({ article }: { article: Article }) => {
         : 'bg-white hover:shadow-lg border-gray-100'}
       border backdrop-blur-sm
     `}>
-      <div className="p-6 space-y-4">
-        <div className="flex items-start justify-between gap-4">
+      <div className="p-4 sm:p-5 space-y-3">
+        <div className="flex items-start justify-between gap-3">
           <h2 className={`
-            text-xl font-semibold mb-2 group-hover:text-blue-500 transition-colors
+            text-lg font-semibold mb-1 group-hover:text-blue-500 transition-colors
             ${theme === 'dark' ? 'text-gray-100' : 'text-gray-900'}
           `}>
             {article.title}
@@ -83,7 +83,7 @@ const ArticleCard = ({ article }: { article: Article }) => {
           </Badge>
         </div>
         <p className={`
-          line-clamp-4 text-base leading-relaxed
+          line-clamp-3 text-sm leading-relaxed
           ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}
         `}>
           {article.content}
@@ -381,7 +381,7 @@ function App() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-[2000px] mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[800px]">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 min-h-[800px]">
         {/* Status Messages */}
         {(loading || error) && (
           <div className={`
@@ -430,7 +430,7 @@ function App() {
             message="No articles available for this page. Try navigating to a different page."
           />
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             {articles.map((article, i) => (
               <div
                 key={article.id}
