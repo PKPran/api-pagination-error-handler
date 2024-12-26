@@ -85,16 +85,23 @@ interface QueuedRetry {
 }
 
 function App() {
+  // Core Data States
   const [articles, setArticles] = useState<Article[]>([])
+  const [page, setPage] = useState<number>(1)
+  const [hasNextPage, setHasNextPage] = useState<boolean>(true)
+
+  // Request handling states
   const [loading, setLoading] = useState<boolean>(false)
   const [error, setError] = useState<string | null>(null)
-  const [page, setPage] = useState<number>(1)
   const [retryQueue, setRetryQueue] = useState<QueuedRetry[]>([])
-  const [hasNextPage, setHasNextPage] = useState<boolean>(true)
+
+  // Monitoring states
   const [fetchStatus, setFetchStatus] = useState<string[]>([])
   const [attemptedPages, setAttemptedPages] = useState<PageAttempt[]>([])
-  const [highestPageAttempted, setHighestPageAttempted] = useState<number>(0)
   const [pageData, setPageData] = useState<Map<number, PageData>>(new Map())
+
+  // Performance metrics
+  const [highestPageAttempted, setHighestPageAttempted] = useState<number>(0)
   const [retryMetrics, setRetryMetrics] = useState<RetryMetrics[]>([])
   const [retryState, setRetryState] = useState<RetryState>({
     tokens: TOKEN_BUCKET_SIZE,
@@ -105,14 +112,17 @@ function App() {
   const [isPageDataExpanded, setIsPageDataExpanded] = useState(false);
   const [actualRetryRate, setActualRetryRate] = useState<number>(0);
 
+  // Add to retry queue
   const addToRetryQueue = (retry: QueuedRetry): void => {
     setRetryQueue(prev => [...prev, retry]);
   }
 
+  // Remove from retry queue
   const removeFromRetryQueue = (pageNum: number): void => {
     setRetryQueue(prev => prev.filter(retry => retry.pageNum !== pageNum));
   }
 
+  // Add to fetch status
   const addFetchStatus = (pageNum: number, status: string): void => {
     setFetchStatus(prev => [...prev, `Page ${pageNum}: ${status}`].slice(-5))
   }
@@ -154,7 +164,7 @@ function App() {
     return () => clearInterval(refillInterval);
   }, []);
 
-  // Update getRetryToken to be more precise
+  // Attempts to get a token for a retry
   const getRetryToken = (): boolean => {
     const now = Date.now();
     setRetryState(prev => {
