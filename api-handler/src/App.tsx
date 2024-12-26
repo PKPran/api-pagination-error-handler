@@ -9,7 +9,8 @@ import {
   FileX,
   Loader2,
   Database,
-  CloudOff
+  CloudOff,
+  CheckCircle
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Moon, Sun } from 'lucide-react'
@@ -220,6 +221,136 @@ const StateIllustration = ({
   )
 }
 
+// Add this component for end of content
+const EndOfContent = () => {
+  const { theme } = useTheme()
+  return (
+    <div className="mt-12 text-center space-y-4">
+      <div className={`
+        w-24 h-1 mx-auto rounded-full
+        ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'}
+      `} />
+      <p className={`
+        text-sm font-medium
+        ${theme === 'dark' ? 'text-gray-400' : 'text-gray-500'}
+      `}>
+        You've reached the end
+      </p>
+    </div>
+  )
+}
+
+// Add this for page sync status
+const PageSyncStatus = ({ visitedPages, currentPage }: { 
+  visitedPages: Set<number>
+  currentPage: number 
+}) => {
+  const { theme } = useTheme()
+  
+  return (
+    <div className="flex items-center gap-2 text-sm">
+      <span className={`
+        font-medium
+        ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}
+      `}>
+        Synced pages:
+      </span>
+      <div className="flex gap-1">
+        {Array.from(visitedPages).sort((a, b) => a - b).map(page => (
+          <span
+            key={page}
+            className={`
+              px-2 py-0.5 rounded-md text-xs font-medium
+              ${page === currentPage 
+                ? 'bg-blue-500 text-white' 
+                : theme === 'dark'
+                  ? 'bg-gray-800 text-gray-400'
+                  : 'bg-gray-100 text-gray-600'
+              }
+            `}
+          >
+            {page}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Update the status components to be more prominent
+const BottomStatusBar = ({ 
+  visitedPages, 
+  currentPage, 
+  hasNextPage,
+  loading,
+  error 
+}: { 
+  visitedPages: Set<number>
+  currentPage: number
+  hasNextPage: boolean
+  loading: boolean
+  error: string | null
+}) => {
+  const { theme } = useTheme()
+  
+  return (
+    <div className={`
+      fixed bottom-0 left-0 right-0 z-50
+      ${theme === 'dark' ? 'bg-gray-900/90' : 'bg-white/90'}
+      backdrop-blur-sm border-t
+      ${theme === 'dark' ? 'border-gray-800' : 'border-gray-200'}
+    `}>
+      <div className="max-w-7xl mx-auto px-4 py-4">
+        <div className="flex items-center justify-between">
+          {/* Sync Status */}
+          <div className="flex items-center gap-4">
+            <span className={`
+              font-medium text-sm
+              ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}
+            `}>
+              Navigation History:
+            </span>
+            <div className="flex flex-wrap gap-1 max-w-[300px]">
+              {Array.from(visitedPages).sort((a, b) => a - b).map(page => (
+                <span
+                  key={page}
+                  className={`
+                    px-2 py-0.5 rounded-md text-xs font-medium
+                    ${page === currentPage 
+                      ? 'bg-blue-500 text-white' 
+                      : theme === 'dark'
+                        ? 'bg-gray-800 text-gray-400'
+                        : 'bg-gray-100 text-gray-600'
+                    }
+                  `}
+                >
+                  {page}
+                </span>
+              ))}
+            </div>
+          </div>
+
+          {/* Status Indicators */}
+          <div className="flex items-center gap-4">
+            {loading && (
+              <div className="flex items-center gap-2">
+                <LoadingPulse />
+                <span className="text-sm text-blue-500">Loading page {currentPage}</span>
+              </div>
+            )}
+            {!hasNextPage && (
+              <div className="flex items-center gap-2">
+                <CheckCircle className="h-4 w-4 text-green-500" />
+                <span className="text-sm text-green-500">End of content</span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const { theme, setTheme } = useTheme()
   const [articles, setArticles] = useState<Article[]>([])
@@ -298,7 +429,7 @@ function App() {
 
   return (
     <div className={`
-      min-h-screen transition-colors duration-300
+      min-h-screen pb-16 transition-colors duration-300
       ${theme === 'dark' 
         ? 'bg-gradient-to-b from-gray-900 to-gray-800' 
         : 'bg-gradient-to-b from-gray-50 to-white'}
@@ -310,7 +441,7 @@ function App() {
           ? 'bg-gray-900/80 border-gray-700' 
           : 'bg-white/80 border-gray-200'}
       `}>
-        <div className="max-w-[2000px] mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <h1 className={`
               text-2xl font-bold flex items-center gap-3 min-w-[200px]
@@ -430,17 +561,34 @@ function App() {
             message="No articles available for this page. Try navigating to a different page."
           />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {articles.map((article, i) => (
-              <div
-                key={article.id}
-                className="animate-in fade-in slide-in-from-bottom-4 duration-300"
-                style={{ animationDelay: `${i * 100}ms` }}
-              >
-                <ArticleCard article={article} />
-              </div>
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+              {articles.map((article, i) => (
+                <div
+                  key={article.id}
+                  className="animate-in fade-in slide-in-from-bottom-4 duration-300"
+                  style={{ animationDelay: `${i * 100}ms` }}
+                >
+                  <ArticleCard article={article} />
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-8 space-y-6">
+              {/* Show sync status only if we have visited pages */}
+              {visitedPages.size > 0 && (
+                <div className="flex justify-center">
+                  <PageSyncStatus 
+                    visitedPages={visitedPages} 
+                    currentPage={page} 
+                  />
+                </div>
+              )}
+              
+              {/* Show end of content indicator when there's no next page */}
+              {!hasNextPage && <EndOfContent />}
+            </div>
+          </>
         )}
 
         {/* Enhanced Status Indicator */}
@@ -463,6 +611,15 @@ function App() {
           </div>
         </div>
       </main>
+
+      {/* Fixed Bottom Status Bar */}
+      <BottomStatusBar 
+        visitedPages={visitedPages}
+        currentPage={page}
+        hasNextPage={hasNextPage}
+        loading={loading}
+        error={error}
+      />
     </div>
   )
 }
