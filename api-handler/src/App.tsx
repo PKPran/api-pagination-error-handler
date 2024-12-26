@@ -447,7 +447,9 @@ function App() {
     const stats: PerformanceStats = {
       totalRequests: attemptedPages.length,
       preventedImmediateRetries: retryMetrics.length,
-      totalBackoffTime: retryMetrics.reduce((sum, metric) => sum + metric.delay, 0),
+      totalBackoffTime: retryMetrics
+        .filter(metric => metric.delay > 0 && metric.statusCode !== 200) // Only count real retries
+        .reduce((sum, metric) => sum + metric.delay, 0),
       averageBackoffTime: 0,
       maxBackoffTime: Math.max(...retryMetrics.map(m => m.delay), 0),
       retryDistribution: new Map()
