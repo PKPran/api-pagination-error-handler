@@ -15,7 +15,8 @@ import {
   Coffee,
   Newspaper,
   ScrollText,
-  Inbox
+  Inbox,
+  X
 } from 'lucide-react'
 import { useTheme } from 'next-themes'
 import { Moon, Sun } from 'lucide-react'
@@ -226,103 +227,109 @@ const StateIllustration = ({
   )
 }
 
-// Add this component for end of content
-const EndOfContent = () => {
+// Add this component for the end of feed modal
+const EndOfFeedModal = ({ show, onClose }: { 
+  show: boolean
+  onClose: () => void 
+}) => {
   const { theme } = useTheme()
+  
   const messages = [
     {
       text: "That's all the news for now! Time for a coffee break ☕",
+      subtext: "Our journalists run on caffeine too!",
       icon: <Coffee className="w-12 h-12 animate-bounce" />
     },
     {
-      text: "You've reached the end! Our journalists are busy writing more stories...",
+      text: "You've reached the end of the feed!",
+      subtext: "Our journalists are busy writing more stories with their mechanical keyboards...",
       icon: <Newspaper className="w-12 h-12 animate-pulse" />
     },
     {
-      text: "No more articles to scroll through! Maybe touch some grass? 🌱",
+      text: "No more articles to scroll through!",
+      subtext: "Maybe it's time to write your own viral tech blog? 💻",
       icon: <ScrollText className="w-12 h-12 animate-in spin-in-180" />
     },
     {
-      text: "Inbox zero achieved! Well, news inbox anyway...",
+      text: "Breaking News: You've finished all articles!",
+      subtext: "404: More content not found (yet)",
+      icon: <FileX className="w-12 h-12 animate-bounce" />
+    },
+    {
+      text: "Inbox Zero Achieved!",
+      subtext: "If only email inboxes were this manageable...",
       icon: <Inbox className="w-12 h-12 animate-bounce" />
     }
   ]
 
-  // Randomly select a message
   const message = messages[Math.floor(Math.random() * messages.length)]
 
+  // Close on Escape key
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [onClose])
+
+  if (!show) return null
+
   return (
-    <div className={`
-      mt-12 p-8 rounded-xl text-center space-y-4 border
-      ${theme === 'dark' 
-        ? 'bg-gray-800/50 border-gray-700' 
-        : 'bg-gray-50 border-gray-200'}
-    `}>
-      <div className={`
-        inline-flex p-4 rounded-full
-        ${theme === 'dark' ? 'bg-gray-700' : 'bg-white'}
-      `}>
-        <div className={`
-          ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}
-        `}>
-          {message.icon}
+    <div 
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-black/20 backdrop-blur-sm" />
+      <div 
+        className={`
+          relative w-full max-w-sm rounded-xl p-6 shadow-lg
+          animate-in slide-in-from-bottom-4 duration-300
+          ${theme === 'dark' ? 'bg-gray-800' : 'bg-white'}
+        `}
+        onClick={e => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className={`
+            absolute top-4 right-4 p-1 rounded-full hover:bg-gray-100
+            ${theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100'}
+          `}
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="space-y-4 text-center">
+          <div className={`
+            inline-flex p-4 rounded-full mx-auto
+            ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-50'}
+          `}>
+            <div className={theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}>
+              {message.icon}
+            </div>
+          </div>
+          
+          <h3 className={`
+            text-xl font-semibold
+            ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}
+          `}>
+            {message.text}
+          </h3>
+          
+          <p className={`
+            text-sm
+            ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}
+          `}>
+            {message.subtext}
+          </p>
+
+          <p className={`
+            mt-4 text-xs
+            ${theme === 'dark' ? 'text-gray-500' : 'text-gray-400'}
+          `}>
+            Click anywhere to dismiss
+          </p>
         </div>
-      </div>
-      
-      <h3 className={`
-        text-xl font-semibold
-        ${theme === 'dark' ? 'text-gray-200' : 'text-gray-700'}
-      `}>
-        End of the Feed
-      </h3>
-      
-      <p className={`
-        text-sm
-        ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}
-      `}>
-        {message.text}
-      </p>
-
-      <div className={`
-        w-24 h-1 mx-auto rounded-full
-        ${theme === 'dark' ? 'bg-gray-700' : 'bg-gray-200'}
-      `} />
-    </div>
-  )
-}
-
-// Add this for page sync status
-const PageSyncStatus = ({ visitedPages, currentPage }: { 
-  visitedPages: Set<number>
-  currentPage: number 
-}) => {
-  const { theme } = useTheme()
-  
-  return (
-    <div className="flex items-center gap-2 text-sm">
-      <span className={`
-        font-medium
-        ${theme === 'dark' ? 'text-gray-400' : 'text-gray-600'}
-      `}>
-        Synced pages:
-      </span>
-      <div className="flex gap-1">
-        {Array.from(visitedPages).sort((a, b) => a - b).map(page => (
-          <span
-            key={page}
-            className={`
-              px-2 py-0.5 rounded-md text-xs font-medium
-              ${page === currentPage 
-                ? 'bg-blue-500 text-white' 
-                : theme === 'dark'
-                  ? 'bg-gray-800 text-gray-400'
-                  : 'bg-gray-100 text-gray-600'
-              }
-            `}
-          >
-            {page}
-          </span>
-        ))}
       </div>
     </div>
   )
@@ -411,6 +418,7 @@ function App() {
   const [hasNextPage, setHasNextPage] = useState<boolean>(true)
   const [pageData, setPageData] = useState<Map<number, PageData>>(new Map())
   const [visitedPages, setVisitedPages] = useState<Set<number>>(new Set())
+  const [showEndModal, setShowEndModal] = useState(false)
 
   // Simplified fetch function without retry logic
   const fetchArticles = async (pageNum: number, retryCount = 0): Promise<void> => {
@@ -477,6 +485,13 @@ function App() {
   useEffect(() => {
     fetchArticles(page)
   }, [page])
+
+  // Show modal when reaching the end
+  useEffect(() => {
+    if (!loading && !error && articles.length > 0 && !hasNextPage) {
+      setShowEndModal(true)
+    }
+  }, [loading, error, articles.length, hasNextPage])
 
   return (
     <div className={`
@@ -624,21 +639,6 @@ function App() {
                 </div>
               ))}
             </div>
-            
-            <div className="mt-8 space-y-6">
-              {/* Show sync status only if we have visited pages */}
-              {visitedPages.size > 0 && (
-                <div className="flex justify-center">
-                  <PageSyncStatus 
-                    visitedPages={visitedPages} 
-                    currentPage={page} 
-                  />
-                </div>
-              )}
-              
-              {/* Show end of content indicator when there's no next page */}
-              {!hasNextPage && <EndOfContent />}
-            </div>
           </>
         )}
 
@@ -670,6 +670,12 @@ function App() {
         hasNextPage={hasNextPage}
         loading={loading}
         error={error}
+      />
+
+      {/* End of Feed Modal */}
+      <EndOfFeedModal 
+        show={showEndModal} 
+        onClose={() => setShowEndModal(false)} 
       />
     </div>
   )
